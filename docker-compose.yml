@@ -1,15 +1,29 @@
 version: '3.8'
 
 services:
+
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
     ports:
       - "5678:5678"
+    env_file:
+      - .env
     volumes:
       - n8n_data:/home/node/.n8n
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - postgres
+      - nuclei-api
 
   postgres:
     image: postgres:15
+    container_name: postgres
     restart: always
     environment:
       POSTGRES_USER: n8n
@@ -17,11 +31,26 @@ services:
       POSTGRES_DB: incidents
     ports:
       - "5432:5432"
-  grafana:
-    image: grafana/grafana
-    ports:
-    - "3000:3000"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nuclei-api:
+    build: ./nuclei-api
+    container_name: nuclei_api
     restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - nuclei_templates:/root/nuclei-templates
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
 
 volumes:
   n8n_data:
+  postgres_data:
+  nuclei_templates:
