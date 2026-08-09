@@ -43,13 +43,6 @@ services:
     volumes:
       - nuclei_templates:/root/nuclei-templates
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: always
-    ports:
-      - "3000:3000"
-
 volumes:
   n8n_data:
   postgres_data:
