@@ -43,14 +43,14 @@ class Settings(BaseSettings):
     # Authentication users
     # ==========================================================
 
-    AUTH_ADMIN_USERNAME: str
-    AUTH_ADMIN_PASSWORD: str
+    AUTH_ADMIN_USERNAME: str | None = None
+    AUTH_ADMIN_PASSWORD: str | None = None
 
-    AUTH_ANALYST_USERNAME: str
-    AUTH_ANALYST_PASSWORD: str
+    AUTH_ANALYST_USERNAME: str | None = None
+    AUTH_ANALYST_PASSWORD: str | None = None
 
-    AUTH_MANAGER_USERNAME: str
-    AUTH_MANAGER_PASSWORD: str
+    AUTH_MANAGER_USERNAME: str | None = None
+    AUTH_MANAGER_PASSWORD: str | None = None
 
     # ==========================================================
     # CORS
