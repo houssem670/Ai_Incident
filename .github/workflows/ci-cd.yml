@@ -348,7 +348,19 @@ jobs:
 
       - name: Wait for PostgreSQL
         run: |
-          sleep 10
+          echo "Waiting for PostgreSQL..."
+
+          for i in {1..30}; do
+            if docker exec postgres-test pg_isready \
+              -U "${{ secrets.POSTGRES_USER }}" \
+              -d "${{ secrets.POSTGRES_DB }}"; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+
+            echo "PostgreSQL is not ready yet..."
+            sleep 2
+          done
 
       - name: Start Backend
         run: |
@@ -363,6 +375,25 @@ jobs:
             -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
             ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
 
+      - name: Wait for Backend
+        run: |
+          echo "Waiting for Backend..."
+
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/ > /dev/null; then
+              echo "Backend is ready!"
+              exit 0
+            fi
+
+            echo "Backend is not ready yet..."
+            sleep 2
+          done
+
+          echo "Backend failed to become ready."
+          docker ps -a
+          docker logs backend-test
+          exit 1
+
       - name: Check Backend Status
         run: |
           echo "===== Docker containers ====="
@@ -375,18 +406,9 @@ jobs:
           echo "===== Backend logs ====="
           docker logs backend-test || true
 
-      - name: Check Backend Port
-        run: |
-          echo "===== Test from host ====="
-          curl --fail --show-error --verbose http://127.0.0.1:8000/ || true
-
-          echo "===== Test from container ====="
-          docker exec backend-test sh -c \
-            "curl --fail --show-error http://127.0.0.1:8000/ || true"
-
       - name: Test Backend
         run: |
-          curl --fail --show-error http://127.0.0.1:8000/
+          curl --fail --show-error --verbose http://127.0.0.1:8000/
 
       - name: Show Backend Logs
         if: always()
