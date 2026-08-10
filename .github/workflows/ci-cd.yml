@@ -355,7 +355,7 @@ jobs:
           docker run -d \
             --name backend-test \
             --network soc-network \
-            -p 8001:8000 \
+            -p 8000:8000 \
             -e POSTGRES_HOST=postgres-test \
             -e POSTGRES_PORT=5432 \
             -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
@@ -367,9 +367,14 @@ jobs:
         run: |
           sleep 15
 
+      - name: Check Backend Container
+        run: |
+          docker ps -a
+          docker logs backend-test
+
       - name: Test Backend
         run: |
-          curl --fail http://localhost:8001/
+          curl --fail --show-error --verbose http://localhost:8000/
 
       - name: Show Backend Logs
         if: always()
