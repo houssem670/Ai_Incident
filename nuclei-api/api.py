@@ -3,9 +3,9 @@ import subprocess, json
 
 app = FastAPI()
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    return {"status": "ok"}
+    return {"status": "healthy"}
 
 @app.post("/scan")
 def scan(data: dict):
