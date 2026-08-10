@@ -363,18 +363,30 @@ jobs:
             -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
             ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
 
-      - name: Wait for Backend
+      - name: Check Backend Status
         run: |
-          sleep 15
-
-      - name: Check Backend Container
-        run: |
+          echo "===== Docker containers ====="
           docker ps -a
-          docker logs backend-test
+
+          echo "===== Backend status ====="
+          docker inspect backend-test \
+            --format='Status={{.State.Status}} ExitCode={{.State.ExitCode}} Running={{.State.Running}}'
+
+          echo "===== Backend logs ====="
+          docker logs backend-test || true
+
+      - name: Check Backend Port
+        run: |
+          echo "===== Test from host ====="
+          curl --fail --show-error --verbose http://127.0.0.1:8000/ || true
+
+          echo "===== Test from container ====="
+          docker exec backend-test sh -c \
+            "curl --fail --show-error http://127.0.0.1:8000/ || true"
 
       - name: Test Backend
         run: |
-          curl --fail --show-error --verbose http://localhost:8000/
+          curl --fail --show-error http://127.0.0.1:8000/
 
       - name: Show Backend Logs
         if: always()
