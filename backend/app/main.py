@@ -58,10 +58,8 @@ def root():
         "app": settings.APP_NAME,
         "version": settings.API_VERSION,
     }
-
-
 @app.get("/health")
-def health_check():
+def health():
     return {
         "status": "healthy"
     }

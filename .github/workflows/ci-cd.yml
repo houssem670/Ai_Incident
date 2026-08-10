@@ -1,79 +1,95 @@
-name: SOC Platform CI/CD
+name: AI Incident - CI/CD
 
 on:
   push:
     branches:
-      - main
-      - develop
+      - "**"
 
   pull_request:
     branches:
       - main
-      - develop
 
+  workflow_dispatch:
+
+env:
+  APP_NAME: ai-incident
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/ai-incident-backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/ai-incident-frontend
+  IMAGE_TAG: ${{ github.sha }}
+
+permissions:
+  contents: read
+
+# ============================================================
+# 1. TEST
+# ============================================================
 
 jobs:
 
-  # ============================================================
-  # 1. TEST
-  # ============================================================
-
-  test:
-    name: Test Backend & Frontend
+  backend_tests:
+    name: Backend Tests
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
 
-      # --------------------------------------------------------
-      # Checkout
-      # --------------------------------------------------------
-
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-
-      # --------------------------------------------------------
-      # Backend - Python
-      # --------------------------------------------------------
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install backend dependencies
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-
-      - name: Install pytest
-        working-directory: backend
-        run: |
-          pip install pytest
-
+          pip install -r requirements.txt
+          pip install pytest httpx
 
       - name: Run backend tests
         working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+
         run: |
-          if [ -d tests ]; then
-            pytest -v
-          else
-            echo "No backend tests directory found."
-          fi
+          pytest -v
 
 
-      # --------------------------------------------------------
-      # Frontend - React
-      # --------------------------------------------------------
+  frontend_tests:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -84,3 +100,297 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+
+# ============================================================
+# 2. SONARQUBE
+# ============================================================
+
+  sonarqube:
+    name: SonarQube Cloud
+    runs-on: ubuntu-latest
+
+    needs:
+      - backend_tests
+      - frontend_tests
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+        with:
+          args: >
+            -Dsonar.organization=houssem-fkih
+            -Dsonar.projectKey=houssem670_Ai_Incident
+            -Dsonar.sources=backend,frontend/src,nuclei-api
+            -Dsonar.exclusions=**/node_modules/**,**/.venv/**,**/dist/**,**/__pycache__/**
+
+
+# ============================================================
+# 3. SNYK
+# ============================================================
+
+  snyk_scan:
+    name: Snyk Security Scan
+    runs-on: ubuntu-latest
+
+    needs:
+      - backend_tests
+      - frontend_tests
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Snyk
+        uses: snyk/actions/setup@v0
+
+      - name: Snyk Backend Scan
+        working-directory: backend
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+        run: |
+          snyk test --file=requirements.txt --package-manager=pip || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Snyk Frontend Scan
+        working-directory: frontend
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+        run: |
+          snyk test --severity-threshold=high || true
+
+
+# ============================================================
+# 4. DOCKER BUILD
+# ============================================================
+
+  docker_build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+
+    needs:
+      - sonarqube
+      - snyk_scan
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Backend
+        run: |
+          docker build \
+            -t ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }} \
+            ./backend
+
+      - name: Build Frontend
+        run: |
+          docker build \
+            -t ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }} \
+            ./frontend
+
+      - name: Save Backend Image
+        run: |
+          mkdir -p images
+
+          docker save \
+            -o images/backend.tar \
+            ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
+
+      - name: Save Frontend Image
+        run: |
+          docker save \
+            -o images/frontend.tar \
+            ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+
+      - name: Upload Docker Images
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: images/
+          retention-days: 1
+
+
+# ============================================================
+# 5. TRIVY
+# ============================================================
+
+  trivy_scan:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+
+    needs: docker_build
+
+    steps:
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: images/
+
+      - name: Load Backend
+        run: |
+          docker load -i images/backend.tar
+
+      - name: Load Frontend
+        run: |
+          docker load -i images/frontend.tar
+
+      - name: Scan Backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Scan Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+
+# ============================================================
+# 6. CONTAINER TEST
+# ============================================================
+
+  container_test:
+    name: Container Test
+    runs-on: ubuntu-latest
+
+    needs:
+      - docker_build
+      - trivy_scan
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: images/
+
+      - name: Load images
+        run: |
+          docker load -i images/backend.tar
+          docker load -i images/frontend.tar
+
+      - name: Create Docker network
+        run: |
+          docker network create soc-network
+
+      - name: Start PostgreSQL
+        run: |
+          docker run -d \
+            --name postgres-test \
+            --network soc-network \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            postgres:15
+
+      - name: Wait for PostgreSQL
+        run: |
+          sleep 10
+
+      - name: Start Backend
+        run: |
+          docker run -d \
+            --name backend-test \
+            --network soc-network \
+            -p 8001:8000 \
+            -e POSTGRES_HOST=postgres-test \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
+
+      - name: Wait for Backend
+        run: |
+          sleep 15
+
+      - name: Test Backend
+        run: |
+          curl --fail http://localhost:8001/
+
+      - name: Show Backend Logs
+        if: always()
+        run: |
+          docker logs backend-test || true
+
+
+# ============================================================
+# 7. DOCKER HUB
+# ============================================================
+
+  docker_push:
+    name: Push Images to DockerHub
+    runs-on: ubuntu-latest
+
+    needs: container_test
+
+    permissions:
+      contents: read
+
+    steps:
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: images/
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Load images
+        run: |
+          docker load -i images/backend.tar
+          docker load -i images/frontend.tar
+
+      - name: Push Backend
+        run: |
+          docker push \
+            ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
+
+      - name: Push Frontend
+        run: |
+          docker push \
+            ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
