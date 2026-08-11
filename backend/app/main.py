@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
+from sqlalchemy.exc import ProgrammingError, IntegrityError, OperationalError
 from app.models.user import User
 
 from app.config import settings
@@ -9,7 +10,13 @@ from app.database import Base, engine
 from app.routes import auth, dashboard, incidents, logs, users, settings as settings_routes, alerts,reports
 from app.routes import setup
 
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except (ProgrammingError, IntegrityError, OperationalError):
+    # Another worker process already created the tables at the same moment
+    # (race condition when running with multiple Uvicorn workers: --workers 2).
+    # Safe to ignore since the tables end up created either way.
+    pass
 
 app = FastAPI(
     title=settings.APP_NAME,
