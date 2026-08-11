@@ -264,9 +264,7 @@ jobs:
           retention-days: 1
 
 
-# ============================================================
-# 5. TRIVY
-# ============================================================
+
 # ============================================================
 # 5. TRIVY
 # ============================================================
@@ -311,10 +309,6 @@ jobs:
         ignore-unfixed: true
 
 
-# ============================================================
-# 6. CONTAINER TEST
-# ============================================================
-
   container_test:
     name: Container Test
     runs-on: ubuntu-latest
@@ -325,8 +319,16 @@ jobs:
 
     steps:
 
+      # ============================================================
+      # Checkout
+      # ============================================================
+
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ============================================================
+      # Download Docker images
+      # ============================================================
 
       - name: Download Docker images
         uses: actions/download-artifact@v4
@@ -334,10 +336,18 @@ jobs:
           name: docker-images
           path: images/
 
+      # ============================================================
+      # Load Docker images into Docker
+      # ============================================================
+
       - name: Load Docker images
         run: |
           docker load -i images/backend.tar
           docker load -i images/frontend.tar
+
+      # ============================================================
+      # Docker Network
+      # ============================================================
 
       - name: Create Docker network
         run: |
@@ -365,13 +375,20 @@ jobs:
             if docker exec postgres-test pg_isready \
               -U "${{ secrets.POSTGRES_USER }}" \
               -d "${{ secrets.POSTGRES_DB }}"; then
+
               echo "PostgreSQL is ready!"
-              break
+              exit 0
             fi
 
             echo "PostgreSQL is not ready yet..."
             sleep 2
           done
+
+          echo "PostgreSQL failed to become ready."
+
+          docker logs postgres-test
+
+          exit 1
 
       # ============================================================
       # Backend
@@ -399,6 +416,10 @@ jobs:
             -e INTERNAL_API_KEY="${{ secrets.INTERNAL_API_KEY }}" \
             "${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}"
 
+      # ============================================================
+      # Check Backend Container
+      # ============================================================
+
       - name: Check Backend Container
         run: |
           echo "===== Docker containers ====="
@@ -411,11 +432,16 @@ jobs:
           echo "===== Backend logs ====="
           docker logs backend-test || true
 
+      # ============================================================
+      # Wait for Backend
+      # ============================================================
+
       - name: Wait for Backend
         run: |
           echo "Waiting for Backend..."
 
           for i in {1..30}; do
+
             if curl -fsS http://127.0.0.1:8000/ > /dev/null; then
               echo "Backend is ready!"
               exit 0
@@ -436,7 +462,7 @@ jobs:
           exit 1
 
       # ============================================================
-      # Backend Test
+      # Test Backend
       # ============================================================
 
       - name: Test Backend
@@ -445,13 +471,89 @@ jobs:
             http://127.0.0.1:8000/
 
       # ============================================================
-      # Logs
+      # Frontend
+      # ============================================================
+
+      - name: Start Frontend
+        run: |
+          docker run -d \
+            --name frontend-test \
+            --network soc-network \
+            -p 8080:80 \
+            "${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}"
+
+      # ============================================================
+      # Check Frontend Container
+      # ============================================================
+
+      - name: Check Frontend Container
+        run: |
+          echo "===== Docker containers ====="
+          docker ps -a
+
+          echo "===== Frontend status ====="
+          docker inspect frontend-test \
+            --format='Status={{.State.Status}} ExitCode={{.State.ExitCode}} Running={{.State.Running}}'
+
+          echo "===== Frontend logs ====="
+          docker logs frontend-test || true
+
+      # ============================================================
+      # Wait for Frontend
+      # ============================================================
+
+      - name: Wait for Frontend
+        run: |
+          echo "Waiting for Frontend..."
+
+          for i in {1..30}; do
+
+            if curl -fsS http://127.0.0.1:8080/ > /dev/null; then
+              echo "Frontend is ready!"
+              exit 0
+            fi
+
+            echo "Frontend is not ready yet..."
+            sleep 2
+          done
+
+          echo "Frontend failed to become ready."
+
+          echo "===== Docker containers ====="
+          docker ps -a
+
+          echo "===== Frontend logs ====="
+          docker logs frontend-test
+
+          exit 1
+
+      # ============================================================
+      # Test Frontend
+      # ============================================================
+
+      - name: Test Frontend
+        run: |
+          curl --fail --show-error --verbose \
+            http://127.0.0.1:8080/
+
+      # ============================================================
+      # Logs - Always
       # ============================================================
 
       - name: Show Backend Logs
         if: always()
         run: |
           docker logs backend-test || true
+
+      - name: Show Frontend Logs
+        if: always()
+        run: |
+          docker logs frontend-test || true
+
+      - name: Show PostgreSQL Logs
+        if: always()
+        run: |
+          docker logs postgres-test || true
 
 
 # ============================================================
