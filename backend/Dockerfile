@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir --break-system-packages --only-binary :all: --upg
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --break-system-packages --require-hashes -r requirements.txt
+RUN pip install --no-cache-dir --break-system-packages --only-binary=:all: --require-hashes -r requirements.txt
 
 # Copy application
 COPY . .
