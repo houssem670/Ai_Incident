@@ -192,13 +192,14 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
         run: |
-          snyk test --file=requirements.txt --package-manager=pip || true
+          snyk test --file=requirements.txt --package-manager=pip 
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -209,7 +210,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
         run: |
-          snyk test --severity-threshold=high || true
+          snyk test --severity-threshold=high
 
 
 # ============================================================
