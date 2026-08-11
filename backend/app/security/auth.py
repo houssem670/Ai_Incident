@@ -3,7 +3,8 @@ from typing import Any
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -22,7 +23,6 @@ def create_access_token(subject: str, role: str) -> str:
         "exp": expire,
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
 
 def authenticate_user(db: Session, username: str, password: str) -> dict[str, str] | None:
     user = db.query(User).filter(User.username == username).first()
@@ -62,5 +62,5 @@ async def get_current_user(
             raise credentials_exception
 
         return {"username": user.username, "role": user.role}
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise credentials_exception from exc
