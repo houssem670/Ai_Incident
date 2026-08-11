@@ -8,9 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Upgrade setuptools/wheel first to patch vulnerabilities vendored inside setuptools
+RUN pip install --no-cache-dir --break-system-packages --upgrade "setuptools>=80.9.0" "wheel>=0.46.2"
+
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --break-system-packages --upgrade "setuptools>=80.9.0" "wheel>=0.46.2"
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy application
 COPY . .
