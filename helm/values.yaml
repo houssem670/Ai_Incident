@@ -1,8 +1,8 @@
 # Namespace
 
-namespace:
-  create: true
-  name: ai-incident
+#namespace:
+ # create: true
+  #name: ai-incident
 
 # LimitRange
 
