@@ -62,9 +62,9 @@ secret:
   enabled: true
   name: backend-secret
 
-  postgresUser: n8n             
+  postgresUser: ""            
   postgresDatabase: incidents
-  postgresPassword: n8n
+  postgresPassword: ""
 
   postgresHost: postgres-service    
   postgresPort: "5432"                 
