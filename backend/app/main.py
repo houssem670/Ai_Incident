@@ -26,7 +26,16 @@ app = FastAPI(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "testserver", "host.docker.internal"]
+    allowed_hosts=[
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+        "testserver",
+        "host.docker.internal",
+        "ai-incident.example.com",
+        "backend-service",
+        "backend-service.ai-incident.svc.cluster.local",
+    ]
 )
 
 app.add_middleware(

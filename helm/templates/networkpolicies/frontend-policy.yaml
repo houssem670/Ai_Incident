@@ -1,0 +1,53 @@
+{{- if .Values.networkPolicy.enabled }}
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Values.networkPolicy.frontend.name }}
+  namespace: {{ .Values.namespace.name }}
+
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.frontend.name }}
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Ingress NGINX -> Frontend
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.service.port }}
+
+  egress:
+    # Frontend -> Backend
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.backend.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.port }}
+
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.dns.namespaceLabelKey }}: {{ .Values.networkPolicy.dns.namespaceLabelValue }}
+          podSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.dns.podLabelKey }}: {{ .Values.networkPolicy.dns.podLabelValue }}
+      ports:
+        - protocol: UDP
+          port: {{ .Values.networkPolicy.dns.port }}
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.dns.port }}
+
+{{- end }}

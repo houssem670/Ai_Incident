@@ -1,0 +1,24 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: {{ .Values.postgres.service.name }}
+  namespace: {{ .Values.namespace.name }}
+
+spec:
+
+  type: {{ .Values.postgres.service.type }}
+
+  selector:
+    app: {{ .Values.postgres.name }}
+
+  ports:
+
+    - port: {{ .Values.postgres.service.port }}
+
+      targetPort: {{ .Values.postgres.containerPort }}
+
+      protocol: TCP
+
+{{- end }}

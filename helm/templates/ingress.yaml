@@ -1,0 +1,64 @@
+{{- if .Values.ingress.enabled }}
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: {{ .Values.ingress.name }}
+  namespace: {{ .Values.namespace.name }}
+
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+
+  rules:
+    - host: {{ .Values.ingress.host }}
+
+      http:
+        paths:
+
+          # =========================
+          # Frontend
+          # =========================
+
+          - path: {{ .Values.frontend.ingress.path }}
+            pathType: {{ .Values.frontend.ingress.pathType }}
+
+            backend:
+              service:
+                name: {{ .Values.frontend.service.name }}
+                port:
+                  number: {{ .Values.frontend.service.port }}
+
+
+          # =========================
+          # Backend - /api
+          # =========================
+
+          - path: {{ .Values.backend.ingress.path }}
+            pathType: {{ .Values.backend.ingress.pathType }}
+
+            backend:
+              service:
+                name: {{ .Values.backend.service.name }}
+                port:
+                  number: {{ .Values.backend.service.port }}
+
+
+          # =========================
+          # Backend - additional routes
+          # =========================
+
+          {{- range .Values.backend.ingress.additionalPaths }}
+
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+
+            backend:
+              service:
+                name: {{ $.Values.backend.service.name }}
+                port:
+                  number: {{ $.Values.backend.service.port }}
+
+          {{- end }}
+
+{{- end }}

@@ -1,0 +1,63 @@
+{{- if .Values.backend.enabled }}
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ .Values.backend.name }}
+  namespace: {{ .Values.namespace.name }}
+
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: {{ .Values.backend.name }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.backend.name }}
+
+    spec:
+      serviceAccountName: {{ .Values.rbac.serviceAccount.name }}
+
+      containers:
+        - name: backend
+
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.backend.containerPort }}
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.configMap.name }}
+
+            - secretRef:
+                name: {{ .Values.secret.name }}
+
+          env:
+            - name: POSTGRES_HOST
+              value: "{{ .Values.secret.postgresHost }}"
+
+            - name: POSTGRES_PORT
+              value: "{{ .Values.secret.postgresPort }}"
+
+            - name: ALGORITHM
+              value: "{{ .Values.backend.jwtAlgorithm }}"
+
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              value: "{{ .Values.backend.jwtExpire }}"
+
+          resources:
+            requests:
+              cpu: {{ .Values.backend.resources.requests.cpu }}
+              memory: {{ .Values.backend.resources.requests.memory }}
+
+            limits:
+              cpu: {{ .Values.backend.resources.limits.cpu }}
+              memory: {{ .Values.backend.resources.limits.memory }}
+
+{{- end }}

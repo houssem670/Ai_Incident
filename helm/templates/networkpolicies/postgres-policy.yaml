@@ -1,0 +1,34 @@
+{{- if .Values.networkPolicy.enabled }}
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Values.networkPolicy.postgres.name }}
+  namespace: {{ .Values.namespace.name }}
+
+spec:
+
+  podSelector:
+
+    matchLabels:
+      app: {{ .Values.postgres.name }}
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+
+    - from:
+
+        - podSelector:
+
+            matchLabels:
+              app: {{ .Values.backend.name }}
+
+      ports:
+
+        - protocol: TCP
+          port: {{ .Values.postgres.service.port }}
+
+{{- end }}

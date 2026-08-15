@@ -1,0 +1,3 @@
+secret:
+  postgresHost: host.docker.internal
+  postgresPort: "5432"

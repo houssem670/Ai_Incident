@@ -1,0 +1,20 @@
+apiVersion: v2
+name: ai-incident
+description: Helm Chart for AI Incident Analyst Platform
+type: application
+
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - ai
+  - incident
+  - security
+  - devops
+  - kubernetes
+
+maintainers:
+  - name: Houssem
+
+sources:
+  - https://github.com/houssem670/Ai-Incident

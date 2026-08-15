@@ -1,0 +1,284 @@
+# Namespace
+
+namespace:
+  create: true
+  name: ai-incident
+
+# LimitRange
+
+limitRange:
+  enabled: true
+  name: ai-incident-limitrange
+
+  min:
+    cpu: 50m
+    memory: 64Mi
+
+  max:
+    cpu: "1"
+    memory: 1Gi
+
+  default:
+    cpu: 500m
+    memory: 512Mi
+
+  defaultRequest:
+    cpu: 100m
+    memory: 128Mi
+
+resourceQuota:
+  enabled: true
+  name: ai-incident-resourcequota
+
+  requests:
+    cpu: "3"
+    memory: 2560Mi   
+
+  limits:
+    cpu: "6"          
+    memory: 5Gi       
+
+  pods: 30            
+  services: 10
+  persistentVolumeClaims: 5
+  configMaps: 10
+  secrets: 10
+
+# ConfigMap
+
+configMap:
+  enabled: true
+  name: backend-config
+
+  appName: "SOC Platform API"
+  apiVersion: "v1"
+  host: "0.0.0.0"
+  port: "8000"
+  corsScheme: "https"  
+
+# Secret
+
+secret:
+  enabled: true
+  name: backend-secret
+
+  postgresUser: n8n             
+  postgresDatabase: incidents
+  postgresPassword: n8n
+
+  postgresHost: postgres-service    
+  postgresPort: "5432"                 
+
+  jwtSecret: ""
+  internalApiKey: ""
+
+########################################
+# Backend
+########################################
+
+backend:
+  enabled: true
+
+  name: backend
+  replicaCount: 2
+  containerPort: 8000
+
+  jwtAlgorithm: HS256
+  jwtExpire: "60"
+
+  image:
+      repository: houssem128/ai-incident-backend
+      tag: host-fix
+      pullPolicy: IfNotPresent
+
+  service:
+    name: backend-service
+    type: ClusterIP
+    port: 8000
+
+  ingress:
+    path: /api
+    pathType: Prefix
+
+    additionalPaths:
+      - path: /health
+        pathType: Prefix
+
+      - path: /docs
+        pathType: Prefix
+
+      - path: /openapi.json
+        pathType: Prefix
+
+      - path: /redoc
+        pathType: Prefix
+
+      - path: /dashboard
+        pathType: Prefix
+
+      - path: /logs
+        pathType: Prefix
+
+      - path: /incidents
+        pathType: Prefix
+
+      - path: /users
+        pathType: Prefix
+
+      - path: /alerts
+        pathType: Prefix
+
+      - path: /reports
+        pathType: Prefix
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+    limits:
+      cpu: 250m
+      memory: 256Mi
+########################################
+# Frontend
+########################################
+
+frontend:
+
+  enabled: true
+
+  name: frontend
+
+  replicaCount: 2
+
+  containerPort: 80
+
+  image:
+    repository: houssem128/ai-incident-frontend
+    tag: v1.1.1
+    pullPolicy: IfNotPresent
+
+  service:
+    name: frontend-service
+    type: ClusterIP
+    port: 80
+
+  ingress:
+    path: /
+    pathType: Prefix
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+  resources:
+
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+########################################
+# PostgreSQL
+########################################
+
+postgres:
+
+  enabled: true
+
+  name: postgres
+
+  replicaCount: 1
+
+  containerPort: 5432
+
+  image:
+    repository: postgres
+    tag: "15"
+    pullPolicy: IfNotPresent
+
+  service:
+    name: postgres-service
+    type: ClusterIP
+    port: 5432
+
+  storage:
+    pvcName: postgres-pvc
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    storageClassName: ""
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+########################################
+# Ingress
+########################################
+
+ingress:
+  enabled: true
+  name: ai-incident-ingress
+  className: nginx
+  host: ai-incident.example.com
+########################################
+# RBAC
+########################################
+
+rbac:
+
+  enabled: true
+
+  serviceAccount:
+    create: true
+    name: ai-incident-sa
+
+  role:
+    name: ai-incident-role
+
+  roleBinding:
+    name: ai-incident-rolebinding
+
+########################################
+# Network Policies
+########################################
+
+networkPolicy:
+
+  enabled: true
+
+  defaultDeny:
+    name: default-deny
+
+  # DNS egress needed for pods to resolve service names (postgres-service, etc.)
+  dns:
+    namespaceLabelKey: kubernetes.io/metadata.name
+    namespaceLabelValue: kube-system
+    podLabelKey: k8s-app
+    podLabelValue: kube-dns   # sur GKE/EKS/kubeadm classique. Sur AKS: "kube-dns" aussi. Adapter si CoreDNS custom.
+    port: 53
+
+  frontend:
+    name: frontend-policy
+
+  backend:
+    name: backend-policy
+
+  postgres:
+    name: postgres-policy

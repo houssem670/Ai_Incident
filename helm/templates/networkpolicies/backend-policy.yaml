@@ -1,0 +1,61 @@
+{{- if .Values.networkPolicy.enabled }}
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Values.networkPolicy.backend.name }}
+  namespace: {{ .Values.namespace.name }}
+
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.backend.name }}
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.frontend.name }}
+        - namespaceSelector: {}   # Autorise aussi l'Ingress Controller
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.port }}
+
+  egress:
+    # PostgreSQL dans le cluster
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.postgres.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.service.port }}
+
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.dns.namespaceLabelKey }}: {{ .Values.networkPolicy.dns.namespaceLabelValue }}
+          podSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.dns.podLabelKey }}: {{ .Values.networkPolicy.dns.podLabelValue }}
+      ports:
+        - protocol: UDP
+          port: {{ .Values.networkPolicy.dns.port }}
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.dns.port }}
+
+    # PostgreSQL local (Docker Desktop)
+    - to:
+        - ipBlock:
+            cidr: 192.168.65.254/32
+      ports:
+        - protocol: TCP
+          port: 5432
+
+{{- end }}

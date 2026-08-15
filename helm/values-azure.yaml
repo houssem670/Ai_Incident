@@ -1,0 +1,3 @@
+secret:
+  postgresHost: postgres-service
+  postgresPort: "5432"

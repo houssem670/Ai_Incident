@@ -354,7 +354,7 @@ jobs:
           docker network create soc-network
 
       # ============================================================
-      # PostgreSQL
+      # PostgreSQL  
       # ============================================================
 
       - name: Start PostgreSQL
@@ -597,3 +597,95 @@ jobs:
         run: |
           docker push \
             ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+
+  deploy_aks:
+    name: Deploy to Azure AKS
+    runs-on: ubuntu-latest
+
+    needs:
+      - docker_push
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS Context
+        uses: azure/aks-set-context@v4
+        with:
+           resource-group: ai-incident-rg
+           cluster-name: ai-incident-aks
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy Application
+        run: |
+          helm upgrade --install ai-incident ./helm \
+            --namespace ai-incident \
+            --create-namespace \
+            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+            --set backend.image.tag=${{ github.sha }} \
+            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+            --set frontend.image.tag=${{ github.sha }}
+
+      - name: Wait for Backend
+        run: |
+           kubectl rollout status deployment/backend -n ai-incident
+
+      - name: Wait for Frontend
+        run: |
+           kubectl rollout status deployment/frontend -n ai-incident
+
+      - name: Show Kubernetes Resources
+        run: |
+          kubectl get all -n ai-incident
+          kubectl get ingress -n ai-incident
+
+  monitoring:
+    name: Install Prometheus & Grafana
+    runs-on: ubuntu-latest
+
+    needs:
+      - deploy_aks
+
+    steps:
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set AKS Context
+      uses: azure/aks-set-context@v4
+      with:
+        resource-group: ai-incident-rg
+        cluster-name: ai-incident-aks
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+
+    - name: Add Prometheus Helm Repository
+      run: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+
+    - name: Install kube-prometheus-stack
+      run: |
+        helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+          --namespace monitoring \
+          --create-namespace
+
+    - name: Wait for Monitoring
+      run: |
+        kubectl rollout status deployment/monitoring-grafana -n monitoring --timeout=10m || true
+
+    - name: Show Monitoring Resources
+      run: |
+        kubectl get pods -n monitoring
+        kubectl get svc -n monitoring
