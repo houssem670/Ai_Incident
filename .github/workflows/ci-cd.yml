@@ -626,6 +626,12 @@ jobs:
 
       - name: Deploy Application
         run: |
+          # Supprimer uniquement les anciennes ressources créées manuellement
+          kubectl delete networkpolicy backend-policy -n ai-incident --ignore-not-found
+          kubectl delete networkpolicy frontend-policy -n ai-incident --ignore-not-found
+          kubectl delete networkpolicy postgres-policy -n ai-incident --ignore-not-found
+          kubectl delete networkpolicy default-deny -n ai-incident --ignore-not-found
+
           helm upgrade --install ai-incident ./helm \
             --namespace ai-incident \
             --create-namespace \
