@@ -114,3 +114,4 @@ backend/.venv-compile/
 *.dump
 *.sql
 rendered.yaml
+helm/rendered.yaml
