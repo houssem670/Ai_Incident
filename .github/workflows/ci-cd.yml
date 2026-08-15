@@ -626,19 +626,17 @@ jobs:
 
       - name: Deploy Application
         run: |
-          # Supprimer uniquement les anciennes ressources créées manuellement
-          kubectl delete networkpolicy backend-policy -n ai-incident --ignore-not-found
-          kubectl delete networkpolicy frontend-policy -n ai-incident --ignore-not-found
-          kubectl delete networkpolicy postgres-policy -n ai-incident --ignore-not-found
-          kubectl delete networkpolicy default-deny -n ai-incident --ignore-not-found
+          kubectl delete namespace ai-incident --ignore-not-found=true
+          kubectl wait --for=delete namespace/ai-incident --timeout=180s || true
+
+          kubectl create namespace ai-incident
 
           helm upgrade --install ai-incident ./helm \
-            --namespace ai-incident \
-            --create-namespace \
-            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
-            --set backend.image.tag=${{ github.sha }} \
-            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
-            --set frontend.image.tag=${{ github.sha }}
+          --namespace ai-incident \
+          --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+          --set backend.image.tag=${{ github.sha }} \
+          --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+          --set frontend.image.tag=${{ github.sha }}
 
       - name: Wait for Backend
         run: |
