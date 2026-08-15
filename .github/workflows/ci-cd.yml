@@ -664,6 +664,9 @@ jobs:
 
     steps:
 
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
     - name: Azure Login
       uses: azure/login@v2
       with:
@@ -705,3 +708,5 @@ jobs:
       run: |
         kubectl get pods -n monitoring
         kubectl get svc -n monitoring
+  
+       
