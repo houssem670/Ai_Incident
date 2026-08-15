@@ -1,0 +1,52 @@
+# helm/monitoring/servicemonitor-postgres.yaml
+#
+# ServiceMonitor qui dit a Prometheus de scraper les metriques Postgres.
+#
+# PREREQUIS : Postgres n'expose PAS de metriques Prometheus nativement.
+# Il faut deployer un sidecar "postgres_exporter" a cote du conteneur postgres
+# dans postgres-statefulset.yaml, qui traduit les stats Postgres au format
+# Prometheus sur le port 9187.
+#
+# Exemple de sidecar a ajouter dans postgres-statefulset.yaml (spec.template.spec.containers) :
+#
+#   - name: postgres-exporter
+#     image: prometheuscommunity/postgres-exporter:v0.15.0
+#     env:
+#       - name: DATA_SOURCE_NAME
+#         value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable"
+#     envFrom:
+#       - secretRef:
+#           name: backend-secret   # reutilise POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
+#     ports:
+#       - containerPort: 9187
+#         name: metrics
+#
+# Et exposer le port 9187 dans postgres-service.yaml (ports: - name: metrics, port: 9187).
+#
+# Usage :
+#   kubectl apply -f helm/monitoring/servicemonitor-postgres.yaml
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-servicemonitor
+  namespace: ai-incident
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      # Doit matcher les labels du Service postgres-service
+      app: postgres
+
+  namespaceSelector:
+    matchNames:
+      - ai-incident
+
+  endpoints:
+    - port: metrics
+      # Nom du port "metrics" (9187) expose par le sidecar postgres_exporter,
+      # a definir dans postgres-service.yaml
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

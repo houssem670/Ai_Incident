@@ -1,0 +1,51 @@
+# helm/monitoring/servicemonitor-backend.yaml
+#
+# ServiceMonitor qui dit a Prometheus (kube-prometheus-stack) de scraper
+# les metriques exposees par le backend FastAPI sur /metrics.
+#
+# PREREQUIS COTE BACKEND :
+#   Le endpoint /metrics n'existe pas par defaut dans FastAPI. Il faut
+#   l'ajouter avec la lib "prometheus-fastapi-instrumentator" :
+#
+#     pip install prometheus-fastapi-instrumentator
+#
+#   Puis dans app/main.py :
+#     from prometheus_fastapi_instrumentator import Instrumentator
+#     Instrumentator().instrument(app).expose(app)
+#
+#   Ca expose automatiquement GET /metrics au format Prometheus.
+#
+# Usage :
+#   kubectl apply -f helm/monitoring/servicemonitor-backend.yaml
+#   (ou l'inclure comme template Helm dans helm/templates/ si tu veux
+#   qu'il soit versionne avec le reste du chart)
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-servicemonitor
+  namespace: ai-incident
+  labels:
+    # Le label ci-dessous doit correspondre au serviceMonitorSelector
+    # de prometheus-values.yaml. Comme on a mis serviceMonitorSelectorNilUsesHelmValues: false,
+    # Prometheus decouvre TOUS les ServiceMonitors du cluster, donc ce label est optionnel
+    # mais garde-le pour rester explicite / filtrable plus tard.
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      # Doit matcher les labels du Service backend-service (voir backend-service.yaml)
+      app: backend
+
+  namespaceSelector:
+    matchNames:
+      - ai-incident
+
+  endpoints:
+    - port: http
+      # Le nom "http" doit correspondre au nom du port defini dans backend-service.yaml
+      # (ex: name: http, port: 8000). Si ton service n'a pas de nom de port,
+      # remplace "port: http" par "targetPort: 8000".
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

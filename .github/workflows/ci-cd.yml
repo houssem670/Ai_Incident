@@ -633,6 +633,10 @@ jobs:
 
           helm upgrade --install ai-incident ./helm \
           --namespace ai-incident \
+          -f helm/values.yaml \
+          -f helm/values-azure.yaml \
+          --set secret.postgresUser=${{ secrets.POSTGRES_USER }} \
+          --set secret.postgresPassword=${{ secrets.POSTGRES_PASSWORD }} \
           --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
           --set backend.image.tag=${{ github.sha }} \
           --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
@@ -683,7 +687,15 @@ jobs:
       run: |
         helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
         --namespace monitoring \
-        --create-namespace
+        --create-namespace \
+        -f helm/monitoring/prometheus-values.yaml \
+        -f helm/monitoring/grafana-values.yaml \
+        --set grafana.adminPassword=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+
+    - name: Apply ServiceMonitors
+      run: |
+        kubectl apply -f helm/monitoring/servicemonitor-backend.yaml --validate=false || true
+        kubectl apply -f helm/monitoring/servicemonitor-postgres.yaml --validate=false || true
 
     - name: Wait for Monitoring
       run: |

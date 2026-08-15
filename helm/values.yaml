@@ -61,13 +61,12 @@ configMap:
 secret:
   enabled: true
   name: backend-secret
-
-  postgresUser: ""            
+  postgresUser: ""
   postgresDatabase: incidents
   postgresPassword: ""
 
-  postgresHost: postgres-service    
-  postgresPort: "5432"                 
+  postgresHost: postgres-service
+  postgresPort: "5432"
 
   jwtSecret: ""
   internalApiKey: ""

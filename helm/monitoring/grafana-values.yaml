@@ -1,0 +1,55 @@
+# helm/monitoring/grafana-values.yaml
+# Values Grafana pour le chart prometheus-community/kube-prometheus-stack
+# Usage : voir prometheus-values.yaml (les deux fichiers se passent ensemble avec -f)
+
+grafana:
+  enabled: true
+
+  adminUser: admin
+  # En production, remplace par un secret existant plutot qu'un mot de passe en clair :
+  # admin.existingSecret: grafana-admin-secret
+  adminPassword: ""
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  persistence:
+    enabled: true
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Dashboards par defaut deja livres par kube-prometheus-stack
+  # (Kubernetes cluster, nodes, pods, etc.) - rien a faire, actives par defaut.
+
+  # Dashboard providers : permet d'ajouter des dashboards JSON custom
+  # via des ConfigMaps labellisees grafana_dashboard=1
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+
+    datasources:
+      enabled: true
+      label: grafana_datasource
+      searchNamespace: ALL
+
+  # Datasource Prometheus deja configuree automatiquement par le chart parent.
+  # On peut ajouter ici une datasource supplementaire si besoin (ex: Loki plus tard).
+  additionalDataSources: []
+
+  ingress:
+    enabled: false
+    # Active plus tard si tu veux exposer Grafana via ton ingress-nginx existant :
+    # enabled: true
+    # ingressClassName: nginx
+    # hosts:
+    #   - grafana.ai-incident.example.com

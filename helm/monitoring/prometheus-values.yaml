@@ -1,0 +1,45 @@
+# helm/monitoring/prometheus-values.yaml
+# Values pour le chart prometheus-community/kube-prometheus-stack
+# Usage :
+#   helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     -f helm/monitoring/prometheus-values.yaml \
+#     -f helm/monitoring/grafana-values.yaml
+
+prometheus:
+  prometheusSpec:
+    # Permet a Prometheus de decouvrir les ServiceMonitors places
+    # en dehors du namespace de release (ex: namespace ai-incident)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    retention: 7d
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+
+# Alertmanager desactive pour rester simple (projet de demo/portfolio)
+alertmanager:
+  enabled: false
+
+# Deploi\u00e9s par defaut par le chart, utiles pour visualiser l'etat
+# des noeuds AKS et des objets Kubernetes.
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
