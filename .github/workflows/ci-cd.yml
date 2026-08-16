@@ -131,7 +131,6 @@ jobs:
 # ============================================================
 # 2. SONARQUBE
 # ============================================================
-
   sonarqube:
     name: SonarQube Cloud
     runs-on: ubuntu-latest
@@ -142,10 +141,18 @@ jobs:
 
     steps:
 
+      # ============================================================
+      # Checkout repository
+      # ============================================================
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # ============================================================
+      # Download Python coverage report
+      # ============================================================
 
       - name: Download coverage report
         uses: actions/download-artifact@v4
@@ -153,19 +160,30 @@ jobs:
           name: coverage-report
           path: backend/
 
+      # ============================================================
+      # Verify Sonar configuration
+      # ============================================================
+
+      - name: Verify Sonar configuration
+        run: |
+          echo "===== sonar-project.properties ====="
+          cat sonar-project.properties
+
+          echo "===== coverage.xml ====="
+          ls -lh backend/coverage.xml
+
+      # ============================================================
+      # SonarQube Cloud Scan
+      # ============================================================
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-        with:
-          args: >
-            -Dsonar.organization=houssem-fkih
-            -Dsonar.projectKey=houssem670_Ai_Incident
-            -Dsonar.sources=backend,frontend/src,nuclei-api
-            -Dsonar.exclusions=**/node_modules/**,**/.venv/**,**/dist/**,**/__pycache__/**
-            -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+
+        
 
 
 # ============================================================
