@@ -35,9 +35,9 @@ app.add_middleware(
         "ai-incident.example.com",
         "backend-service",
         "backend-service.ai-incident.svc.cluster.local",
+        "*.nip.io",
     ]
 )
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()],
