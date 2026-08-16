@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.services.settings_service import SettingsService
 from app.services.report_service import ReportService
@@ -11,6 +10,7 @@ from app.services.report_service import ReportService
 
 def test_settings_get_returns_existing_settings():
     fake_settings = MagicMock()
+
     fake_db = MagicMock()
     fake_db.query.return_value.first.return_value = fake_settings
 
@@ -61,12 +61,13 @@ def test_settings_get_as_dict_returns_expected_shape():
 
 def test_settings_update_changes_provided_fields():
     fake_settings = MagicMock()
+
     fake_db = MagicMock()
     fake_db.query.return_value.first.return_value = fake_settings
 
     result = SettingsService.update(
         fake_db,
-        data={
+        {
             "platform_name": "New Platform Name",
             "incident_severity_threshold": ["high", "critical"],
             "notifications_enabled": False,
@@ -78,6 +79,7 @@ def test_settings_update_changes_provided_fields():
     assert result.incident_severity_threshold == "high,critical"
     assert result.notifications_enabled is False
     assert result.log_retention_days == 60
+
     fake_db.commit.assert_called_once()
 
 
@@ -88,7 +90,12 @@ def test_settings_update_ignores_none_values():
     fake_db = MagicMock()
     fake_db.query.return_value.first.return_value = fake_settings
 
-    result = SettingsService.update(fake_db, data={"platform_name": None})
+    result = SettingsService.update(
+        fake_db,
+        {
+            "platform_name": None,
+        },
+    )
 
     assert result.platform_name == "Unchanged Name"
 
@@ -126,15 +133,24 @@ def test_purge_old_logs_deletes_and_commits():
     fake_settings.log_retention_days = 30
 
     fake_db = MagicMock()
-    fake_db.query.return_value.first.return_value = fake_settings
-    fake_db.query.return_value.filter.return_value.delete.return_value = 5
 
-    from unittest.mock import patch
-    with patch("app.services.settings_service.RawLog.created_at", MagicMock()):
+    settings_query = MagicMock()
+    logs_query = MagicMock()
+
+    fake_db.query.side_effect = [settings_query, logs_query]
+
+    settings_query.first.return_value = fake_settings
+
+    fake_column = MagicMock()
+    fake_column.__lt__.return_value = MagicMock()
+
+    logs_query.filter.return_value.delete.return_value = 5
+
+    with patch("app.services.settings_service.RawLog.created_at", fake_column):
         result = SettingsService.purge_old_logs(fake_db)
 
     assert result == 5
-    fake_db.commit.assert_called()
+    fake_db.commit.assert_called_once()
 
 
 # ============================================================
@@ -175,7 +191,11 @@ def test_get_reports_applies_type_and_risk_filters():
     fake_db = MagicMock()
     fake_db.query.return_value = fake_query
 
-    ReportService.get_reports(fake_db, report_type="phishing", risk_level="high")
+    ReportService.get_reports(
+        fake_db,
+        report_type="phishing",
+        risk_level="high",
+    )
 
     assert fake_query.filter.call_count == 2
 
@@ -186,10 +206,11 @@ def test_get_reports_applies_type_and_risk_filters():
 
 def test_get_report_returns_report():
     fake_report = MagicMock()
+
     fake_db = MagicMock()
     fake_db.query.return_value.filter.return_value.first.return_value = fake_report
 
-    result = ReportService.get_report(fake_db, report_id=1)
+    result = ReportService.get_report(fake_db, 1)
 
     assert result == fake_report
 
@@ -200,10 +221,11 @@ def test_get_report_returns_report():
 
 def test_delete_report_success():
     fake_report = MagicMock()
+
     fake_db = MagicMock()
     fake_db.query.return_value.filter.return_value.first.return_value = fake_report
 
-    result = ReportService.delete_report(fake_db, report_id=1)
+    result = ReportService.delete_report(fake_db, 1)
 
     fake_db.delete.assert_called_once_with(fake_report)
     fake_db.commit.assert_called_once()
@@ -214,7 +236,7 @@ def test_delete_report_returns_none_when_not_found():
     fake_db = MagicMock()
     fake_db.query.return_value.filter.return_value.first.return_value = None
 
-    result = ReportService.delete_report(fake_db, report_id=999)
+    result = ReportService.delete_report(fake_db, 999)
 
     assert result is None
     fake_db.delete.assert_not_called()
