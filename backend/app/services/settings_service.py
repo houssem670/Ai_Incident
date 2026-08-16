@@ -65,7 +65,7 @@ class SettingsService:
 
         deleted = (
             db.query(RawLog)
-            .filter(RawLog.timestamp < cutoff)
+            .filter(RawLog.created_at < cutoff)
             .delete(synchronize_session=False)
         )
 

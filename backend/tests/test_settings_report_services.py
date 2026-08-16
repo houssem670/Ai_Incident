@@ -130,7 +130,7 @@ def test_purge_old_logs_deletes_and_commits():
     fake_db.query.return_value.filter.return_value.delete.return_value = 5
 
     from unittest.mock import patch
-    with patch("app.services.settings_service.RawLog.timestamp", MagicMock()):
+    with patch("app.services.settings_service.RawLog.created_at", MagicMock()):
         result = SettingsService.purge_old_logs(fake_db)
 
     assert result == 5
