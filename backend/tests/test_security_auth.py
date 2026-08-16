@@ -82,6 +82,32 @@ def test_authenticate_user_inactive_account_returns_none():
 
     assert result is None
 
+def _make_token_with_payload(payload: dict) -> str:
+    """Build a JWT directly, bypassing create_access_token, to control payload content."""
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_missing_role_raises_401():
+    fake_db = MagicMock()
+    token = _make_token_with_payload({"sub": "john_doe"})  # no "role" key
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(token=token, db=fake_db)
+
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_missing_username_raises_401():
+    fake_db = MagicMock()
+    token = _make_token_with_payload({"role": "analyst"})  # no "sub" key
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(token=token, db=fake_db)
+
+    assert exc_info.value.status_code == 401
+
 
 # ============================================================
 # get_current_user
